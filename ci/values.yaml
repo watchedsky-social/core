@@ -1,5 +1,4 @@
-project:
-  name: core
-  key: ((core-deploy-private-key))
-  extra-build-params:
-    BUILDKIT_SECRETTEXT_env: "WATCHEDSKY_DB_PASSWORD=((db-password))"
+name: core
+key: ((core-deploy-private-key))
+extra-build-params:
+  BUILDKIT_SECRETTEXT_env: "WATCHEDSKY_DB_PASSWORD=((db-password))"
