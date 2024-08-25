@@ -85,8 +85,7 @@ func Run(ctx context.Context) error {
 				return query.Q.Available()
 			},
 			ReadinessProbe: func(c *fiber.Ctx) bool {
-				r, e := query.Mapsearch.WithContext(c.UserContext()).PrefixSearch("44813")
-				return e != nil && len(r) > 0
+				return query.Q.Available()
 			},
 		}),
 	)
