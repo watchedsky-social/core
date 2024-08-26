@@ -101,16 +101,21 @@ func hydrateAlertState(ctx context.Context) (err error) {
 
 		parentAlert := output.AllAlerts[parentID]
 		rootAlert := output.AllAlerts[rootID]
+		if rootAlert == nil {
+			rootAlert = parentAlert
+		}
 
-		output.ThreadMap[alertID] = &bsky.FeedPost_ReplyRef{
-			Parent: &atproto.RepoStrongRef{
-				Uri: parentAlert.SkeetInfo.Uri,
-				Cid: parentAlert.SkeetInfo.Cid,
-			},
-			Root: &atproto.RepoStrongRef{
-				Uri: rootAlert.SkeetInfo.Uri,
-				Cid: rootAlert.SkeetInfo.Cid,
-			},
+		if parentAlert != nil {
+			output.ThreadMap[alertID] = &bsky.FeedPost_ReplyRef{
+				Parent: &atproto.RepoStrongRef{
+					Uri: parentAlert.SkeetInfo.Uri,
+					Cid: parentAlert.SkeetInfo.Cid,
+				},
+				Root: &atproto.RepoStrongRef{
+					Uri: rootAlert.SkeetInfo.Uri,
+					Cid: rootAlert.SkeetInfo.Cid,
+				},
+			}
 		}
 	}
 
