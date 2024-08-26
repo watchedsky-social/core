@@ -19,7 +19,7 @@ type BlueskyConfig struct {
 }
 
 type AlertConfig struct {
-	MaxAge       time.Duration `split_keys:"true" default:"2h"`
+	MaxAge       time.Duration `split_keys:"true" default:"372h"`
 	HydrationDir string        `split_keys:"true" default:"/app/hydration"`
 	Bluesky      BlueskyConfig
 }

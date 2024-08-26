@@ -56,7 +56,7 @@ func Run(ctx context.Context) error {
 		StrictRouting:     false,
 		CaseSensitive:     true,
 		UnescapePath:      true,
-		EnablePrintRoutes: true,
+		EnablePrintRoutes: false,
 		GETOnly:           true,
 		BodyLimit:         -1,
 		ServerHeader:      "watchedsky",
@@ -64,7 +64,6 @@ func Run(ctx context.Context) error {
 		Network:           fiber.NetworkTCP,
 	})
 
-	// '$remote_addr - $remote_user [$time_local] '    '"$request" $status $body_bytes_sent '    '"$http_referer" "$http_user_agent"';
 	app.Use(
 		recover.New(),
 		compress.New(),
@@ -76,7 +75,8 @@ func Run(ctx context.Context) error {
 				"http_referer":        headerFunc("referer", false),
 				"http_user_agent":     headerFunc("user-agent", false),
 			},
-			Format:     `${ip} - - [${time}] "${method} ${path}" ${status} ${http_content_length} "${http_referer}" "${http_user_agent}"`,
+			Format: `${ip} - - [${time}] "${method} ${path}" ${status} ${http_content_length} "${http_referer}" "${http_user_agent}"
+      `,
 			TimeFormat: time.RFC3339,
 		}),
 		helmet.New(),

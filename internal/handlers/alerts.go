@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/watchedsky-social/core/internal/database/models"
@@ -19,11 +18,9 @@ type recentAlert struct {
 }
 
 func RecentAlerts(ctx *fiber.Ctx) error {
-	lowEnd := time.Now().Add(-time.Hour)
 	dao := query.Alert
 	alerts, err := dao.WithContext(ctx.UserContext()).
 		Select(dao.ID, dao.Headline, dao.Description, dao.Sent, dao.AreaDesc).
-		Where(dao.Sent.Gt(lowEnd)).
 		Order(dao.Sent.Desc()).
 		Limit(ctx.QueryInt("lim", 20)).
 		Find()
