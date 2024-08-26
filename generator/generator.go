@@ -44,7 +44,7 @@ func main() {
 		"geometry": func(columnType gorm.ColumnType) (dataType string) {
 			ct, _ := columnType.ColumnType()
 			if strings.Contains(strings.ToLower(ct), "geometry(") {
-				return "Geometry"
+				return "*Geometry"
 			}
 
 			return "string"

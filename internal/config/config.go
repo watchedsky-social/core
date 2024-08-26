@@ -15,7 +15,7 @@ type DBConfig struct {
 
 type BlueskyConfig struct {
 	ID          string
-	AppPassword string `split_keys:"true"`
+	AppPassword string `envconfig:"APP_PASSWORD"`
 }
 
 type AlertConfig struct {

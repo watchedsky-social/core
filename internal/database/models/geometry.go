@@ -60,6 +60,10 @@ func (g Geometry) Value() (driver.Value, error) {
 }
 
 func (g *Geometry) UnmarshalJSON(data []byte) error {
+	if len(data) == 0 {
+		return nil
+	}
+
 	var geo geojson.Geometry
 	if err := json.Unmarshal(data, &geo); err != nil {
 		return err

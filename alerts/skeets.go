@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -38,9 +39,11 @@ const (
 	skeetFormat  = "NEW WEATHER ADVISORY: %s\n\n%s"
 	maxSkeetLen  = 300
 	shortLinkLen = len("watchedsky.social/app/alerts/...")
+	suffixLen    = len(skeetSuffix)
 )
 
 func hydrateAlertState(ctx context.Context) (err error) {
+	defer handleError(&err)
 	output := alertsState{
 		AllAlerts:   make(map[string]*models.Alert),
 		NewAlertIDs: make([]string, 0, 10),
@@ -49,16 +52,14 @@ func hydrateAlertState(ctx context.Context) (err error) {
 	defer func() {
 		data, e := json.Marshal(output)
 		if e != nil {
-			err = e
-			return
+			panic(e)
 		}
 
 		bskyCfg := config.Config.Alerts
 		e2 := os.WriteFile(filepath.Join(bskyCfg.HydrationDir, stateFile), data, 0o666)
 		if err != nil || e2 != nil {
 			errs := utils.Filter([]error{err, e2}, func(e error) bool { return e != nil })
-			err = errors.Join(errs...)
-			return
+			panic(errors.Join(errs...))
 		}
 	}()
 
@@ -75,7 +76,9 @@ func hydrateAlertState(ctx context.Context) (err error) {
 			err = nil
 		}
 
-		return
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	safeResults := utils.Filter(results, func(a *models.Alert) bool { return a != nil })
@@ -105,7 +108,7 @@ func hydrateAlertState(ctx context.Context) (err error) {
 			rootAlert = parentAlert
 		}
 
-		if parentAlert != nil {
+		if parentAlert != nil && parentAlert.SkeetInfo != nil && rootAlert.SkeetInfo != nil {
 			output.ThreadMap[alertID] = &bsky.FeedPost_ReplyRef{
 				Parent: &atproto.RepoStrongRef{
 					Uri: parentAlert.SkeetInfo.Uri,
@@ -128,19 +131,33 @@ func InitialHydration(ctx context.Context) error {
 	return hydrateAlertState(ctx)
 }
 
-func SkeetNewAlerts(ctx context.Context) error {
+func handleError(err *error) {
+	if r := recover(); r != nil {
+		log.Printf("error occcured. stack: \n%s", debug.Stack())
+		var ok bool
+		if *err, ok = r.(error); ok {
+			return
+		}
+
+		*err = fmt.Errorf("%v", r)
+		return
+	}
+}
+
+func SkeetNewAlerts(ctx context.Context) (err error) {
+	defer handleError(&err)
 	log.Println("Posting about new alerts...")
 	cfg := config.Config.Alerts
 
 	var state alertsState
 	stateFile, err := os.Open(filepath.Join(cfg.HydrationDir, stateFile))
 	if err != nil {
-		return err
+		panic(err)
 	}
 	defer stateFile.Close()
 
 	if err = json.NewDecoder(stateFile).Decode(&state); err != nil {
-		return err
+		panic(err)
 	}
 
 	xrpcClient := &xrpc.Client{
@@ -155,7 +172,7 @@ func SkeetNewAlerts(ctx context.Context) error {
 	})
 
 	if err != nil {
-		return err
+		panic(err)
 	}
 
 	xrpcClient.Auth = &xrpc.AuthInfo{
@@ -181,7 +198,8 @@ func SkeetNewAlerts(ctx context.Context) error {
 	return refreshDB(ctx, state)
 }
 
-func postSkeet(ctx context.Context, alertID string, xrpcClient *xrpc.Client, state *alertsState) error {
+func postSkeet(ctx context.Context, alertID string, xrpcClient *xrpc.Client, state *alertsState) (err error) {
+	defer handleError(&err)
 	alert, ok := state.AllAlerts[alertID]
 	if !ok {
 		return fmt.Errorf("alert %s not found", alertID)
@@ -199,19 +217,19 @@ func postSkeet(ctx context.Context, alertID string, xrpcClient *xrpc.Client, sta
 
 	fullSkeetLen := len(fullSkeetBody)
 
-	skeetLen := min(maxSkeetLen-len(skeetSuffix), fullSkeetLen)
+	skeetLen := min(maxSkeetLen-suffixLen-3, fullSkeetLen) // subtract an extra 3 for the potential '...'
 	fullSkeetBody = fullSkeetBody[0:skeetLen]
 
 	isTruncated := fullSkeetLen > skeetLen
 	if isTruncated {
-		lastSpace := strings.LastIndexFunc(fullSkeetBody, func(r rune) bool { return r == ' ' })
+		lastSpace := strings.LastIndexFunc(strings.TrimSpace(fullSkeetBody), func(r rune) bool { return r == ' ' })
 		fullSkeetBody = fullSkeetBody[0:lastSpace] + "..."
 	}
 
 	fullSkeetBody = fullSkeetBody + skeetSuffix
 	input := &bsky.FeedPost{
 		CreatedAt: alert.Sent.Format(time.RFC3339),
-		Langs:     []string{"en_US"},
+		Langs:     []string{"en-US"},
 		Text:      fullSkeetBody,
 		Embed: &bsky.FeedPost_Embed{
 			EmbedExternal: &bsky.EmbedExternal{
@@ -240,6 +258,10 @@ func postSkeet(ctx context.Context, alertID string, xrpcClient *xrpc.Client, sta
 		Reply: state.ThreadMap[alertID],
 	}
 
+	if input.Reply != nil && (input.Reply.Parent == nil || input.Reply.Root == nil) {
+		input.Reply = nil
+	}
+
 	response, err := atproto.RepoCreateRecord(ctx, xrpcClient, &atproto.RepoCreateRecord_Input{
 		Record: &lexutil.LexiconTypeDecoder{
 			Val: input,
@@ -249,7 +271,8 @@ func postSkeet(ctx context.Context, alertID string, xrpcClient *xrpc.Client, sta
 	})
 
 	if err != nil {
-		return err
+		log.Println(err)
+		panic(err)
 	}
 
 	alert.SkeetInfo = &models.SkeetInfo{
@@ -262,19 +285,20 @@ func postSkeet(ctx context.Context, alertID string, xrpcClient *xrpc.Client, sta
 }
 
 func refreshDB(ctx context.Context, state alertsState) error {
-	return query.Q.Transaction(func(tx *query.Query) error {
+	return query.Q.Transaction(func(tx *query.Query) (err error) {
+		defer handleError(&err)
 		dao := tx.Alert
 		for _, id := range state.NewAlertIDs {
 			alert := state.AllAlerts[id]
 			if alert == nil {
-				return fmt.Errorf("no alert with id %s", id)
+				panic(fmt.Errorf("no alert with id %s", id))
 			}
 
 			if alert.SkeetInfo != nil {
 				if _, err := dao.WithContext(ctx).
 					Where(dao.ID.Eq(id)).
 					UpdateSimple(dao.SkeetInfo.Value(alert.SkeetInfo)); err != nil {
-					return err
+					panic(err)
 				}
 			}
 		}

@@ -145,7 +145,7 @@ func loadLatestAlerts(ctx context.Context, latestID string, cfg config.AlertConf
 				Ends:         optionalTime(feature, "ends"),
 				MessageType:  getOptional(feature, "messageType"),
 				ReferenceIds: &refIDs,
-				Border:       *border,
+				Border:       border,
 			}
 
 			if time.Since(dba.Sent) > maxAge {
