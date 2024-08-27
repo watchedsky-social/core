@@ -6,6 +6,9 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
+var Version = "dev"
+var BuildID = "local"
+
 type DBConfig struct {
 	Host     string `default:"pg.lab.verysmart.house"`
 	User     string `default:"watchedsky-social"`

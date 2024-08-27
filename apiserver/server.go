@@ -75,8 +75,7 @@ func Run(ctx context.Context) error {
 				"http_referer":        headerFunc("referer", false),
 				"http_user_agent":     headerFunc("user-agent", false),
 			},
-			Format: `${ip} - - [${time}] "${method} ${path}" ${status} ${http_content_length} "${http_referer}" "${http_user_agent}"
-      `,
+			Format:     "${ip} - - [${time}] \"${method} ${path}\" ${status} ${http_content_length} \"${http_referer}\" \"${http_user_agent}\"\n",
 			TimeFormat: time.RFC3339,
 		}),
 		helmet.New(),
@@ -91,6 +90,7 @@ func Run(ctx context.Context) error {
 	)
 
 	api := app.Group("/api/v1")
+	api.Get("/info", handlers.Info)
 	api.Get("/typeahead", handlers.Typeahead)
 	api.Get("/zones/visible", handlers.VisibleZones)
 	api.Get("/zones/watchid", handlers.GetWatchID)
