@@ -3,4 +3,4 @@ key: ((core-deploy-private-key))
 extra-build-params:
   BUILDKIT_SECRETTEXT_env: "WATCHEDSKY_DB_PASSWORD=((db-password))"
   BUILD_ARG_VERSION: ((.:version))
-  BUILD_ARG_BUILD_ID: ((.:build-id))
+  BUILD_ARG_BUILD_ID: ((.:buildid))
