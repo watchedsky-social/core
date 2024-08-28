@@ -31,6 +31,9 @@ func headerFunc(headerName string, responseHeader bool) logger.LogFunc {
 		if h != nil {
 			headers := http.Header(h)
 			val := headers.Get(headerName)
+			if val == "" {
+				val = "-"
+			}
 
 			return output.WriteString(val)
 		}
