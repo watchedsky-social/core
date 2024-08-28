@@ -77,6 +77,9 @@ func Run(ctx context.Context) error {
 			},
 			Format:     "${ip} - - [${time}] \"${method} ${path}\" ${status} ${http_content_length} \"${http_referer}\" \"${http_user_agent}\"\n",
 			TimeFormat: time.RFC3339,
+			Next: func(c *fiber.Ctx) bool {
+				return c.Path() == "/livez" || c.Path() == "/readyz"
+			},
 		}),
 		helmet.New(),
 		healthcheck.New(healthcheck.Config{
