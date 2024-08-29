@@ -165,12 +165,14 @@ func loadLatestAlerts(ctx context.Context, latestID string, cfg config.AlertConf
 						alert.Headline, alert.Description, alert.Severity, alert.Certainty,
 						alert.Urgency, alert.Event, alert.Sent, alert.Effective, alert.Onset,
 						alert.Expires, alert.Ends, alert.ReferenceIds, alert.Border, alert.MessageType); err != nil {
+						log.Println(err)
 						return err
 					}
 				}
 
 				return nil
 			}); err != nil {
+				log.Println(err)
 				continue
 			}
 
