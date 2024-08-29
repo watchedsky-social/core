@@ -2,3 +2,4 @@
 **/*.gen.go
 **/*.gen_test.go
 gen_query*.go
+.vscode

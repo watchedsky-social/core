@@ -117,10 +117,12 @@ func GetWatchID(ctx *fiber.Ctx) error {
 			Border:          merged,
 		}
 
-		err = sa.WithContext(ctx.UserContext()).Create(savedArea)
+		err = sa.WithContext(ctx.UserContext()).InsertOptimizedSavedArea(
+			savedArea.ID, savedArea.PassedZones, savedArea.CalculatedZones,
+			savedArea.Border,
+		)
 		if err != nil {
 			return handleWatchIDError(ctx, err)
-
 		}
 	}
 

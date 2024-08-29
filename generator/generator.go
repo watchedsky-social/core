@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/watchedsky-social/core/internal/config"
@@ -13,6 +14,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gen"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func main() {
@@ -35,7 +37,9 @@ func main() {
 
 	args := config.Config.DB
 
-	db, err := gorm.Open(postgres.Open(fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=require TimeZone=UTC", args.Host, args.User, args.Password, args.Name)))
+	db, err := gorm.Open(postgres.Open(fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=require TimeZone=UTC", args.Host, args.User, args.Password, args.Name)), &gorm.Config{
+		Logger: logger.Default,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -72,24 +76,26 @@ func main() {
 
 	g.ApplyInterface(
 		func(CustomZoneQueries) {},
-		g.GenerateModel("zones", gen.FieldJSONTagWithNS(func(columnName string) (tagContent string) {
-			tagContent = fmt.Sprintf("%s,omitempty", columnName)
-			return
+		g.GenerateModel("zones", gen.FieldJSONTagWithNS(func(columnName string) string {
+			return fmt.Sprintf("%s,omitempty", columnName)
 		})),
 	)
 	g.ApplyInterface(
 		func(CustomMapSearchQueries) {},
-		g.GenerateModel("mapsearch", gen.FieldIgnore("display_name"), gen.FieldJSONTagWithNS(func(columnName string) (tagContent string) {
-			tagContent = fmt.Sprintf("%s,omitempty", columnName)
-			return
-		})),
+		g.GenerateModel("mapsearch", gen.FieldIgnore("display_name"),
+			gen.FieldJSONTagWithNS(func(columnName string) string {
+				return fmt.Sprintf("%s,omitempty", columnName)
+			})),
 	)
-	g.ApplyBasic(
-		g.GenerateModel("saved_areas"),
-		g.GenerateModel("alerts", gen.FieldJSONTagWithNS(func(columnName string) (tagContent string) {
-			tagContent = fmt.Sprintf("%s,omitempty", columnName)
-			return
+	g.ApplyInterface(
+		func(CustomAlertsQueries) {},
+		g.GenerateModel("alerts", gen.FieldJSONTagWithNS(func(columnName string) string {
+			return fmt.Sprintf("%s,omitempty", columnName)
 		}), gen.FieldType("skeet_info", "*SkeetInfo")),
+	)
+	g.ApplyInterface(
+		func(CustomSavedAreaQueries) {},
+		g.GenerateModel("saved_areas"),
 	)
 	g.Execute()
 }
@@ -116,4 +122,36 @@ type CustomMapSearchQueries interface {
 	   SELECT DISTINCT ON (display_name) id, name, state, county, centroid
 	       FROM searchResults ORDER by display_name;  */
 	PrefixSearch(searchText string) ([]*gen.T, error)
+}
+
+type CustomAlertsQueries interface {
+	/*
+	   INSERT INTO alerts (
+	       id, area_desc, headline, description, severity, certainty, urgency, event,
+	       sent, effective, onset, expires, ends, reference_ids, border, message_type
+	       ) VALUES (
+	       @id, @areaDesc, @headline, @description, @severity, @certainty,
+	       @urgency, @event, @sent, @effective, @onset, @expires, @ends,
+	       @referenceIDs, ST_UnaryUnion(ST_MakeValid(@border, 'method=structure')),
+	       @messageType
+	       );
+	*/
+	InsertOptimizedAlert(
+		id, areaDesc, headline, description string,
+		severity, certainty, urgency, event *string,
+		sent, effective time.Time, onset, expires, ends *time.Time,
+		referenceIDs *models.StringSlice, border *models.Geometry, messageType *string,
+	) error
+}
+
+type CustomSavedAreaQueries interface {
+	/*
+	   INSERT INTO saved_areas (
+	     id, passed_zones, calculated_zones, border
+	   ) VALUES (
+	     @id, @passedZones, @calculatedZones,
+	     ST_UnaryUnion(ST_MakeValid(@border, 'method=structure'))
+	   );
+	*/
+	InsertOptimizedSavedArea(id, passedZones, calculatedZones string, border *models.Geometry) error
 }

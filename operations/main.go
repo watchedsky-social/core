@@ -79,7 +79,7 @@ func Main() {
 
 	db, err := gorm.Open(postgres.Open(fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=require TimeZone=UTC",
 		dbArgs.Host, dbArgs.User, dbArgs.Password, dbArgs.Name)), &gorm.Config{
-		Logger: logger.Discard,
+		Logger: logger.Default,
 	})
 	if err != nil {
 		log.Fatal(err)

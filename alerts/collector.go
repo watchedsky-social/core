@@ -73,8 +73,6 @@ func loadLatestAlerts(ctx context.Context, latestID string, cfg config.AlertConf
 	}()
 	url := alertURL
 
-	alert := query.Alert
-
 	maxAge := cfg.MaxAge
 	if latestID != "" {
 		log.Println("since we have alerts already, ignore max age and fill everything in")
@@ -159,7 +157,18 @@ func loadLatestAlerts(ctx context.Context, latestID string, cfg config.AlertConf
 
 		if len(dbAlerts) > 0 {
 			log.Printf("adding %d alerts to the database", len(dbAlerts))
-			if err = alert.WithContext(ctx).CreateInBatches(dbAlerts, len(dbAlerts)); err != nil {
+			if err = query.Q.Transaction(func(tx *query.Query) error {
+				for _, alert := range dbAlerts {
+					if err := tx.Alert.WithContext(ctx).InsertOptimizedAlert(alert.ID, alert.AreaDesc,
+						alert.Headline, alert.Description, alert.Severity, alert.Certainty,
+						alert.Urgency, alert.Event, alert.Sent, alert.Effective, alert.Onset,
+						alert.Expires, alert.Ends, alert.ReferenceIds, alert.Border, alert.MessageType); err != nil {
+						return err
+					}
+				}
+
+				return nil
+			}); err != nil {
 				continue
 			}
 
