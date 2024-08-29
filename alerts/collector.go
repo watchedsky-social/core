@@ -157,31 +157,25 @@ func loadLatestAlerts(ctx context.Context, latestID string, cfg config.AlertConf
 
 		if len(dbAlerts) > 0 {
 			log.Printf("adding %d alerts to the database", len(dbAlerts))
-			if err = query.Q.Transaction(func(tx *query.Query) error {
-				dao := tx.Alert.WithContext(ctx)
-				for _, alert := range dbAlerts {
-					log.Printf("Inserting alert %q with optimized geography", alert.ID)
-					if err := dao.InsertOptimizedAlert(alert.ID, alert.AreaDesc,
-						alert.Headline, alert.Description, alert.Severity, alert.Certainty,
-						alert.Urgency, alert.Event, alert.Sent, alert.Effective, alert.Onset,
-						alert.Expires, alert.Ends, alert.ReferenceIds, alert.Border, alert.MessageType); err != nil {
-						log.Println(err)
-						return err
-					}
+			dao := query.Alert.WithContext(ctx)
+			for _, alert := range dbAlerts {
+				log.Printf("Inserting alert %q with optimized geography", alert.ID)
+				if err = dao.InsertOptimizedAlert(alert.ID, alert.AreaDesc,
+					alert.Headline, alert.Description, alert.Severity, alert.Certainty,
+					alert.Urgency, alert.Event, alert.Sent, alert.Effective, alert.Onset,
+					alert.Expires, alert.Ends, alert.ReferenceIds, alert.Border, alert.MessageType); err != nil {
+					log.Println(err)
+					continue
 				}
-
-				return nil
-			}); err != nil {
-				log.Println(err)
-				continue
 			}
 
-			dbAlerts = nil
-			if p, ok := fc.ExtraMembers["pagination"]; ok {
-				var pagination fcPagination
-				if err = mapstructure.Decode(p, &pagination); err == nil {
-					url = pagination.NextLink
-				}
+		}
+
+		dbAlerts = nil
+		if p, ok := fc.ExtraMembers["pagination"]; ok {
+			var pagination fcPagination
+			if err = mapstructure.Decode(p, &pagination); err == nil {
+				url = pagination.NextLink
 			}
 		}
 
