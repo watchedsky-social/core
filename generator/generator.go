@@ -126,15 +126,30 @@ type CustomMapSearchQueries interface {
 
 type CustomAlertsQueries interface {
 	/*
-	   INSERT INTO alerts (
-	       id, area_desc, headline, description, severity, certainty, urgency, event,
-	       sent, effective, onset, expires, ends, reference_ids, border, message_type
-	       ) VALUES (
-	       @id, @areaDesc, @headline, @description, @severity, @certainty,
-	       @urgency, @event, @sent, @effective, @onset, @expires, @ends,
-	       @referenceIDs, ST_UnaryUnion(ST_MakeValid(@border, 'method=structure')),
-	       @messageType
-	       );
+		INSERT INTO alerts (
+		    id, area_desc, headline, description, severity, certainty, urgency, event,
+		    sent, effective, onset, expires, ends, reference_ids, border, message_type
+		    ) VALUES (
+		    @id, @areaDesc, @headline, @description, @severity, @certainty,
+		    @urgency, @event, @sent, @effective, @onset, @expires, @ends,
+		    @referenceIDs, ST_UnaryUnion(ST_MakeValid(@border, 'method=structure')),
+		    @messageType
+		    ) ON CONFLICT(id) DO UPDATE SET
+		    area_desc = EXCLUDED.area_desc,
+		    headline = EXCLUDED.headline,
+		    description = EXCLUDED.description,
+		    severity = EXCLUDED.severity,
+		    certainty = EXCLUDED.certainty,
+		    urgency = EXCLUDED.urgency,
+		    event = EXCLUDED.event,
+		    sent = EXCLUDED.sent,
+		    effective = EXCLUDED.effective,
+		    onset = EXCLUDED.onset,
+		    expires = EXCLUDED.expires,
+		    ends = EXCLUDED.ends,
+		    reference_ids = EXCLUDED.reference_ids,
+		    border = EXCLUDED.border,
+		    message_type = EXCLUDED.message_type;
 	*/
 	InsertOptimizedAlert(
 		id, areaDesc, headline, description string,
@@ -146,12 +161,15 @@ type CustomAlertsQueries interface {
 
 type CustomSavedAreaQueries interface {
 	/*
-	   INSERT INTO saved_areas (
-	     id, passed_zones, calculated_zones, border
-	   ) VALUES (
-	     @id, @passedZones, @calculatedZones,
-	     ST_UnaryUnion(ST_MakeValid(@border, 'method=structure'))
-	   );
+	  INSERT INTO saved_areas (
+	    id, passed_zones, calculated_zones, border
+	  ) VALUES (
+	    @id, @passedZones, @calculatedZones,
+	    ST_UnaryUnion(ST_MakeValid(@border, 'method=structure'))
+	  ) ON CONFLICT(id) DO UPDATE SET
+	    passed_zones = EXCLUDED.passed_zones,
+	    calculated_zones = EXCLUDED.calculated_zones,
+	    border = EXCLUDED.border;
 	*/
 	InsertOptimizedSavedArea(id, passedZones, calculatedZones string, border *models.Geometry) error
 }
