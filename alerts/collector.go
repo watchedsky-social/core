@@ -12,7 +12,6 @@ import (
 
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/paulmach/orb"
 	"github.com/paulmach/orb/geojson"
 	"github.com/watchedsky-social/core/internal/config"
 	"github.com/watchedsky-social/core/internal/database/models"
@@ -212,17 +211,7 @@ func resolveGeometry(ctx context.Context, f *geojson.Feature) (*models.Geometry,
 	}
 
 	if len(affectedZones) > 0 {
-		affZones, err := zones.WithContext(ctx).Select(zones.Border).Where(zones.ID.In(affectedZones...)).Find()
-		if err != nil {
-			return nil, err
-		}
-
-		geos := utils.Map(affZones, func(z *models.Zone) orb.Geometry {
-			return z.Border.ToOrbGeometry()
-		})
-
-		merged := utils.MergeGeometries(geos)
-		return utils.Ref(models.NewGenericGeometry(merged)), nil
+		return zones.WithContext(ctx).ResolveGeometry(affectedZones)
 	}
 
 	return nil, errors.New("no geometry available")

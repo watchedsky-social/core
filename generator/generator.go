@@ -112,6 +112,9 @@ type CustomZoneQueries interface {
 
 	// SELECT z2.id FROM zones z1 INNER JOIN zones z2 ON z1.border = z2.border WHERE z1.id IN (@zoneList);
 	FindCongruentZones(zoneList []string) ([]string, error)
+
+	// SELECT ST_Union(border) FROM zones WHERE id IN (@affectedZones);
+	ResolveGeometry(affectedZones []string) (*models.Geometry, error)
 }
 
 type CustomMapSearchQueries interface {
@@ -132,7 +135,7 @@ type CustomAlertsQueries interface {
 		    ) VALUES (
 		    @id, @areaDesc, @headline, @description, @severity, @certainty,
 		    @urgency, @event, @sent, @effective, @onset, @expires, @ends,
-		    @referenceIDs, ST_UnaryUnion(ST_MakeValid(@border, 'method=structure')),
+		    @referenceIDs, ST_UnaryUnion(@border),
 		    @messageType
 		    ) ON CONFLICT(id) DO UPDATE SET
 		    area_desc = EXCLUDED.area_desc,
@@ -165,7 +168,7 @@ type CustomSavedAreaQueries interface {
 	    id, passed_zones, calculated_zones, border
 	  ) VALUES (
 	    @id, @passedZones, @calculatedZones,
-	    ST_UnaryUnion(ST_MakeValid(@border, 'method=structure'))
+	    ST_UnaryUnion(@border)
 	  ) ON CONFLICT(id) DO UPDATE SET
 	    passed_zones = EXCLUDED.passed_zones,
 	    calculated_zones = EXCLUDED.calculated_zones,
