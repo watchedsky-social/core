@@ -15,6 +15,7 @@ import (
 	"github.com/watchedsky-social/core/internal/config"
 	"github.com/watchedsky-social/core/internal/database/query"
 	"github.com/watchedsky-social/core/internal/utils"
+	"github.com/watchedsky-social/core/zones"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -23,11 +24,12 @@ import (
 type command func(context.Context) error
 
 var commandMap map[string]command = map[string]command{
-	"api-server":      apiserver.Run,
-	"alert-collector": alerts.CollectNewAlerts,
-	"alert-vacuum":    alerts.CleanOldAlerts,
-	"hydrate-state":   alerts.InitialHydration,
-	"post-alerts":     alerts.SkeetNewAlerts,
+	"api-server":          apiserver.Run,
+	"alert-collector":     alerts.CollectNewAlerts,
+	"alert-vacuum":        alerts.CleanOldAlerts,
+	"hydrate-state":       alerts.InitialHydration,
+	"post-alerts":         alerts.SkeetNewAlerts,
+	"complete-zone-table": zones.CollectMissingZones,
 }
 
 func install() error {
