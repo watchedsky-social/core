@@ -205,6 +205,8 @@ func postSkeet(ctx context.Context, alertID string, xrpcClient *xrpc.Client, sta
 		return fmt.Errorf("alert %s not found", alertID)
 	}
 
+	log.Printf("Posting about alert %s on Bluesky", alertID)
+
 	alertURL := fmt.Sprintf("%s/%s", baseURL, alertID)
 
 	cleanHeadline := alert.Headline

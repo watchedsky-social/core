@@ -113,7 +113,8 @@ func loadLatestAlerts(ctx context.Context, latestID string, cfg config.AlertConf
 			var border *models.Geometry
 			border, err = resolveGeometry(ctx, feature)
 			if err != nil {
-				return
+				log.Println(err)
+				continue
 			}
 
 			if ok {
@@ -209,6 +210,15 @@ func resolveGeometry(ctx context.Context, f *geojson.Feature) (*models.Geometry,
 			affectedZones = utils.FromAnySlice[string](intfSl)
 		}
 	}
+
+	resolvedAffectedZones, err := zones.WithContext(ctx).Select(zones.ID).Where(zones.ID.In(affectedZones...)).Find()
+	if err != nil {
+		return nil, err
+	}
+
+	affectedZones = utils.Map(resolvedAffectedZones, func(z *models.Zone) string {
+		return z.ID
+	})
 
 	if len(affectedZones) > 0 {
 		return zones.WithContext(ctx).ResolveGeometry(affectedZones)
