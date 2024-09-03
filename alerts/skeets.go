@@ -144,6 +144,34 @@ func handleError(err *error) {
 	}
 }
 
+func getAuthenticatedXRPCClient(ctx context.Context) (*xrpc.Client, error) {
+	cfg := config.Config.Alerts
+
+	xrpcClient := &xrpc.Client{
+		Client:    util.RobustHTTPClient(),
+		Host:      "https://bsky.social",
+		UserAgent: utils.Ref("watchedsky.social"),
+	}
+
+	session, err := atproto.ServerCreateSession(ctx, xrpcClient, &atproto.ServerCreateSession_Input{
+		Identifier: cfg.Bluesky.ID,
+		Password:   cfg.Bluesky.AppPassword,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	xrpcClient.Auth = &xrpc.AuthInfo{
+		AccessJwt:  session.AccessJwt,
+		RefreshJwt: session.RefreshJwt,
+		Handle:     session.Handle,
+		Did:        session.Did,
+	}
+
+	return xrpcClient, nil
+}
+
 func SkeetNewAlerts(ctx context.Context) (err error) {
 	defer handleError(&err)
 	log.Println("Posting about new alerts...")
@@ -160,26 +188,9 @@ func SkeetNewAlerts(ctx context.Context) (err error) {
 		panic(err)
 	}
 
-	xrpcClient := &xrpc.Client{
-		Client:    util.RobustHTTPClient(),
-		Host:      "https://bsky.social",
-		UserAgent: utils.Ref("watchedsky.social"),
-	}
-
-	session, err := atproto.ServerCreateSession(ctx, xrpcClient, &atproto.ServerCreateSession_Input{
-		Identifier: cfg.Bluesky.ID,
-		Password:   cfg.Bluesky.AppPassword,
-	})
-
+	xrpcClient, err := getAuthenticatedXRPCClient(ctx)
 	if err != nil {
 		panic(err)
-	}
-
-	xrpcClient.Auth = &xrpc.AuthInfo{
-		AccessJwt:  session.AccessJwt,
-		RefreshJwt: session.RefreshJwt,
-		Handle:     session.Handle,
-		Did:        session.Did,
 	}
 
 	alertErrors := []error{}

@@ -30,6 +30,7 @@ var commandMap map[string]command = map[string]command{
 	"hydrate-state":       alerts.InitialHydration,
 	"post-alerts":         alerts.SkeetNewAlerts,
 	"complete-zone-table": zones.CollectMissingZones,
+	"nozzle":              alerts.SubscribeToFirehose,
 }
 
 func install() error {

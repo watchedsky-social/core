@@ -97,6 +97,9 @@ func main() {
 		func(CustomSavedAreaQueries) {},
 		g.GenerateModel("saved_areas"),
 	)
+	g.ApplyBasic(
+		g.GenerateModel("didwids"),
+	)
 	g.Execute()
 }
 
