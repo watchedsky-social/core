@@ -3,6 +3,7 @@ package alerts
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -11,10 +12,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluesky-social/indigo/api"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/bluesky-social/indigo/did"
 	"github.com/bluesky-social/indigo/xrpc"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/adaptor"
+	"github.com/gofiber/fiber/v2/middleware/healthcheck"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/watchedsky-social/core/internal/database/models"
 	"github.com/watchedsky-social/core/internal/database/query"
 	"gorm.io/gorm/clause"
@@ -41,18 +45,37 @@ type Request struct {
 	WID string
 }
 
+func getHandleFromPLCDid(ctx context.Context, didStr string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("https://plc.directory/%s", didStr), nil)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var doc did.Document
+	if err = json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+		return "", err
+	}
+
+	if len(doc.AlsoKnownAs) == 0 {
+		return "", fmt.Errorf("did %s has no associated handle", didStr)
+	}
+
+	return strings.Replace(doc.AlsoKnownAs[0], "at://", "@", 1), nil
+}
+
 func SubscribeToFirehose(ctx context.Context) error {
 	targetDID := os.Getenv("FIREHOSE_TARGET_DID")
 	if targetDID == "" {
 		return errors.New("env variable FIREHOSE_TARGET_DID must be set")
 	}
 
-	hr, err := api.NewProdHandleResolver(1, "https://plc.directory", false)
-	if err != nil {
-		return fmt.Errorf("could not create handle resolver: %w", err)
-	}
-
-	targetHandle, _, err := api.ResolveDidToHandle(ctx, did.NewMultiResolver(), hr, targetDID)
+	targetHandle, err := getHandleFromPLCDid(ctx, targetDID)
 	if err != nil {
 		return fmt.Errorf("could not resolve did %q: %w", targetDID, err)
 	}
@@ -63,12 +86,42 @@ func SubscribeToFirehose(ctx context.Context) error {
 	}
 	defer con.Close()
 
+	webServer := fiber.New(fiber.Config{
+		Prefork:           false,
+		StrictRouting:     false,
+		CaseSensitive:     true,
+		UnescapePath:      true,
+		EnablePrintRoutes: false,
+		GETOnly:           true,
+		BodyLimit:         -1,
+		ServerHeader:      "Watchedsky",
+		AppName:           "Watchedsky Firehose Nozzle",
+	})
+
+	webServer.Use(
+		healthcheck.New(healthcheck.Config{
+			LivenessProbe: func(c *fiber.Ctx) bool {
+				return con != nil
+			},
+			ReadinessProbe: func(c *fiber.Ctx) bool {
+				return con != nil
+			},
+		}),
+	)
+
+	webServer.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
+
+	go func() {
+		webServer.Listen(":23456")
+	}()
+
 	go func() {
 		<-ctx.Done()
+		webServer.Shutdown()
 		con.Close()
 	}()
 
-	xrpcClient, err := getAuthenticatedXRPCClient(ctx)
+	xrpcClient, err := getAuthenticatedXRPCClient(ctx, targetDID, os.Getenv("FIREHOSE_TARGET_APP_PASSWORD"))
 	if err != nil {
 		return fmt.Errorf("cannot connect to bluesky: %w", err)
 	}
@@ -76,7 +129,6 @@ func SubscribeToFirehose(ctx context.Context) error {
 	firehoseNozzle := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *atproto.SyncSubscribeRepos_Commit) error {
 			if evt.TooBig {
-				log.Printf("skipping too big events for now: %d", evt.Seq)
 				return nil
 			}
 
@@ -92,8 +144,6 @@ func SubscribeToFirehose(ctx context.Context) error {
 				case repomgr.EvtKindCreateRecord, repomgr.EvtKindUpdateRecord:
 					rc, rec, err := r.GetRecord(ctx, op.Path)
 					if err != nil {
-						e := fmt.Errorf("getting record %s (%s) within seq %d for %s: %w", op.Path, *op.Cid, evt.Seq, evt.Repo, err)
-						log.Print(e)
 						continue
 					}
 
@@ -103,7 +153,7 @@ func SubscribeToFirehose(ctx context.Context) error {
 						continue
 					}
 
-					if err := handleCreateRecord(ctx, evt.Repo, &rc, rec, targetDID, targetHandle, xrpcClient); err != nil {
+					if err := handleCreateRecord(ctx, evt.Repo, op.Path, &rc, rec, targetDID, targetHandle, xrpcClient); err != nil {
 						log.Printf("event consumer callback (%s): %s", ek, err)
 						continue
 					}
@@ -117,7 +167,7 @@ func SubscribeToFirehose(ctx context.Context) error {
 	return events.HandleRepoStream(ctx, con, sequential.NewScheduler("watchedsky-nozzle", firehoseNozzle.EventHandler))
 }
 
-func handleCreateRecord(ctx context.Context, did string, rcid *cid.Cid, rec any, targetDID string, targetHandle string, xc *xrpc.Client) error {
+func handleCreateRecord(ctx context.Context, did string, path string, rcid *cid.Cid, rec any, targetDID string, targetHandle string, xc *xrpc.Client) error {
 	orig, isPost := rec.(*bsky.FeedPost)
 	if !isPost {
 		return nil
@@ -131,19 +181,23 @@ func handleCreateRecord(ctx context.Context, did string, rcid *cid.Cid, rec any,
 
 	watchID := orig.Text[markerIDX+len(marker) : markerIDX+len(marker)+12]
 
-	log.Printf("found potential watch ID %q in post %s by did %s", watchID, rcid, did)
+	log.Printf("found potential watch ID %q in post %s by did %s", watchID, path, did)
 
 	log.Println("Look to see if they @'ed us...")
 	if !strings.HasPrefix(targetHandle, "@") {
 		targetHandle = "@" + targetHandle
 	}
 
+	log.Printf("Does the post text contain %s", targetHandle)
+
 	saveAndRespond := false
 	if strings.Contains(orig.Text, targetHandle) {
+		log.Println("oh snap, it does, let's see if they actually created a mention facet")
 		// let's see if there's a facet there to double check
 		for _, facet := range orig.Facets {
 			for _, feat := range facet.Features {
 				if feat.RichtextFacet_Mention != nil && feat.RichtextFacet_Mention.Did == targetDID {
+					log.Println("oh snap they did")
 					saveAndRespond = true
 					break
 				}
@@ -156,6 +210,7 @@ func handleCreateRecord(ctx context.Context, did string, rcid *cid.Cid, rec any,
 	// maybe they just replied to us! we should check that too. Don't go too crazy,
 	// only check direct replies.
 	if !saveAndRespond && orig.Reply != nil && orig.Reply.Parent != nil {
+		log.Println("ok, they didn't, let's just see if they replied to one of our posts")
 		root = orig.Reply.Root
 		uri, err := syntax.ParseATURI(orig.Reply.Parent.Uri)
 		if err != nil {
@@ -168,6 +223,7 @@ func handleCreateRecord(ctx context.Context, did string, rcid *cid.Cid, rec any,
 		}
 
 		saveAndRespond = did.String() == targetDID
+		log.Println("do they like us?", saveAndRespond)
 	}
 
 	if saveAndRespond {
@@ -185,7 +241,7 @@ func handleCreateRecord(ctx context.Context, did string, rcid *cid.Cid, rec any,
 		// now, respond. if the root of the thread is nil, then it's the original post, which is
 		// also the parent
 		parentCID := rcid.String()
-		parentURI := fmt.Sprintf("at://%s/%s/%s", did, orig.LexiconTypeID, rcid.String())
+		parentURI := fmt.Sprintf("at://%s/%s", did, path)
 		parent := &atproto.RepoStrongRef{
 			Cid: parentCID,
 			Uri: parentURI,
@@ -205,13 +261,18 @@ func handleCreateRecord(ctx context.Context, did string, rcid *cid.Cid, rec any,
 			},
 		}
 
-		_, err := atproto.RepoCreateRecord(ctx, xc, &atproto.RepoCreateRecord_Input{
+		json.NewEncoder(os.Stdout).Encode(input)
+
+		out, err := atproto.RepoCreateRecord(ctx, xc, &atproto.RepoCreateRecord_Input{
 			Collection: "app.bsky.feed.post",
 			Repo:       xc.Auth.Did,
 			Record: &lexutil.LexiconTypeDecoder{
 				Val: input,
 			},
 		})
+
+		json.NewEncoder(os.Stdout).Encode(out)
+		log.Println(err)
 
 		return err
 	}

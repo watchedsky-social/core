@@ -144,9 +144,7 @@ func handleError(err *error) {
 	}
 }
 
-func getAuthenticatedXRPCClient(ctx context.Context) (*xrpc.Client, error) {
-	cfg := config.Config.Alerts
-
+func getAuthenticatedXRPCClient(ctx context.Context, id, appPassword string) (*xrpc.Client, error) {
 	xrpcClient := &xrpc.Client{
 		Client:    util.RobustHTTPClient(),
 		Host:      "https://bsky.social",
@@ -154,8 +152,8 @@ func getAuthenticatedXRPCClient(ctx context.Context) (*xrpc.Client, error) {
 	}
 
 	session, err := atproto.ServerCreateSession(ctx, xrpcClient, &atproto.ServerCreateSession_Input{
-		Identifier: cfg.Bluesky.ID,
-		Password:   cfg.Bluesky.AppPassword,
+		Identifier: id,
+		Password:   appPassword,
 	})
 
 	if err != nil {
@@ -188,7 +186,7 @@ func SkeetNewAlerts(ctx context.Context) (err error) {
 		panic(err)
 	}
 
-	xrpcClient, err := getAuthenticatedXRPCClient(ctx)
+	xrpcClient, err := getAuthenticatedXRPCClient(ctx, cfg.Bluesky.ID, cfg.Bluesky.AppPassword)
 	if err != nil {
 		panic(err)
 	}
