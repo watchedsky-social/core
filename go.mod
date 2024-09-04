@@ -6,6 +6,7 @@ require (
 	github.com/bluesky-social/indigo v0.0.0-20240820184531-ec58866ed7c3
 	github.com/go-viper/mapstructure/v2 v2.1.0
 	github.com/gofiber/fiber/v2 v2.52.5
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/gorilla/websocket v1.5.1
 	github.com/ipfs/go-cid v0.4.1
 	github.com/joho/godotenv v1.5.1
@@ -117,6 +118,7 @@ require (
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.23.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
+	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.24.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect

@@ -163,6 +163,29 @@ type CustomAlertsQueries interface {
 		sent, effective time.Time, onset, expires, ends *time.Time,
 		referenceIDs *models.StringSlice, border *models.Geometry, messageType *string,
 	) error
+
+	/*
+	   WITH target_area AS (SELECT border FROM saved_areas WHERE id = @watchID LIMIT 1)
+	     SELECT a.skeet_info AS skeet_info, EXTRACT(EPOCH FROM a.sent) * 1000 as sent
+	     FROM alerts a, target_area t
+	     WHERE a.skeet_info IS NOT NULL
+	     AND (a.border && t.border)
+	     AND ST_Intersects(a.border, t.border)
+	     LIMIT @limit
+	     ORDER BY a.sent DESC;
+	*/
+	GetCustomAlertURIs(watchID string, limit uint) ([]*gen.T, error)
+
+	/*
+	   WITH target_area AS (SELECT border FROM saved_areas WHERE ID = @watchID LIMIT 1)
+	     SELECT a.skeet_info AS skeet_info, EXTRACT(EPOCH FROM a.sent) * 1000 as sent
+	     FROM alerts a, target_area t
+	     WHERE a.skeet_info IS NOT NULL
+	     AND a.border && t.border AND ST_Intersects(a.border, t.border)
+	     AND sent < @cursor
+	     ORDER BY a.sent LIMIT @limit DESC;
+	*/
+	GetCustomAlertURIsWithCursor(watchID string, limit uint, cursor uint) ([]*gen.T, error)
 }
 
 type CustomSavedAreaQueries interface {

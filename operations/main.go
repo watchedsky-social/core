@@ -12,6 +12,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/watchedsky-social/core/alerts"
 	"github.com/watchedsky-social/core/apiserver"
+	"github.com/watchedsky-social/core/feed"
 	"github.com/watchedsky-social/core/internal/config"
 	"github.com/watchedsky-social/core/internal/database/query"
 	"github.com/watchedsky-social/core/internal/utils"
@@ -31,6 +32,7 @@ var commandMap map[string]command = map[string]command{
 	"post-alerts":         alerts.SkeetNewAlerts,
 	"complete-zone-table": zones.CollectMissingZones,
 	"nozzle":              alerts.SubscribeToFirehose,
+	"feed-server":         feed.ServeCustomAlgorithmFeed,
 }
 
 func install() error {

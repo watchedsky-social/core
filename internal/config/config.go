@@ -27,9 +27,17 @@ type AlertConfig struct {
 	Bluesky      BlueskyConfig
 }
 
+type FeedConfig struct {
+	Hostname     string `envconfig:"HOST" default:"feed.watchedsky.social"`
+	Port         uint16 `default:"3000"`
+	ServiceDID   string `envconfig:"SERVICE_DID" default:"did:web:feed.watchedsky.social"`
+	PublisherDID string `envconfig:"PUBLISHER_DID"`
+}
+
 type WatchedSkyConfig struct {
 	DB     DBConfig `required:"true"`
 	Alerts AlertConfig
+	Feed   FeedConfig
 }
 
 var Config *WatchedSkyConfig
