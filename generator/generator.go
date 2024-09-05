@@ -165,25 +165,25 @@ type CustomAlertsQueries interface {
 	) error
 
 	/*
-	   WITH target_area AS (SELECT border FROM saved_areas WHERE id = @watchID LIMIT 1)
-	     SELECT a.skeet_info AS skeet_info, EXTRACT(EPOCH FROM a.sent) * 1000 as sent
-	     FROM alerts a, target_area t
-	     WHERE a.skeet_info IS NOT NULL
-	     AND (a.border && t.border)
-	     AND ST_Intersects(a.border, t.border)
-	     LIMIT @limit
-	     ORDER BY a.sent DESC;
+			   WITH target_area AS (SELECT border FROM saved_areas WHERE id = @watchID LIMIT 1)
+			     SELECT a.skeet_info AS skeet_info, a.sent as sent
+			     FROM alerts a, target_area t
+			     WHERE a.skeet_info IS NOT NULL
+			     AND (a.border && t.border)
+			     AND ST_Intersects(a.border, t.border)
+			     ORDER BY a.sent DESC
+		       LIMIT @limit;
 	*/
 	GetCustomAlertURIs(watchID string, limit uint) ([]*gen.T, error)
 
 	/*
 	   WITH target_area AS (SELECT border FROM saved_areas WHERE ID = @watchID LIMIT 1)
-	     SELECT a.skeet_info AS skeet_info, EXTRACT(EPOCH FROM a.sent) * 1000 as sent
+	     SELECT a.skeet_info AS skeet_info, a.sent as sent
 	     FROM alerts a, target_area t
 	     WHERE a.skeet_info IS NOT NULL
 	     AND a.border && t.border AND ST_Intersects(a.border, t.border)
 	     AND sent < @cursor
-	     ORDER BY a.sent LIMIT @limit DESC;
+	     ORDER BY a.sent DESC LIMIT @limit;
 	*/
 	GetCustomAlertURIsWithCursor(watchID string, limit uint, cursor uint) ([]*gen.T, error)
 }

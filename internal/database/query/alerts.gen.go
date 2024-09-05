@@ -284,20 +284,20 @@ func (a alertDo) InsertOptimizedAlert(id string, areaDesc string, headline strin
 
 // WITH target_area AS (SELECT border FROM saved_areas WHERE id = @watchID LIMIT 1)
 //
-//	SELECT a.skeet_info AS skeet_info, EXTRACT(EPOCH FROM a.sent) * 1000 as sent
-//	FROM alerts a, target_area t
-//	WHERE a.skeet_info IS NOT NULL
-//	AND (a.border && t.border)
-//	AND ST_Intersects(a.border, t.border)
-//	LIMIT @limit
-//	ORDER BY a.sent DESC;
+//		     SELECT a.skeet_info AS skeet_info, a.sent as sent
+//		     FROM alerts a, target_area t
+//		     WHERE a.skeet_info IS NOT NULL
+//		     AND (a.border && t.border)
+//		     AND ST_Intersects(a.border, t.border)
+//		     ORDER BY a.sent DESC
+//	       LIMIT @limit;
 func (a alertDo) GetCustomAlertURIs(watchID string, limit uint) (result []*models.Alert, err error) {
 	var params []interface{}
 
 	var generateSQL strings.Builder
 	params = append(params, watchID)
 	params = append(params, limit)
-	generateSQL.WriteString("WITH target_area AS (SELECT border FROM saved_areas WHERE id = ? LIMIT 1) SELECT a.skeet_info AS skeet_info, EXTRACT(EPOCH FROM a.sent) * 1000 as sent FROM alerts a, target_area t WHERE a.skeet_info IS NOT NULL AND (a.border && t.border) AND ST_Intersects(a.border, t.border) LIMIT ? ORDER BY a.sent DESC; ")
+	generateSQL.WriteString("WITH target_area AS (SELECT border FROM saved_areas WHERE id = ? LIMIT 1) SELECT a.skeet_info AS skeet_info, a.sent as sent FROM alerts a, target_area t WHERE a.skeet_info IS NOT NULL AND (a.border && t.border) AND ST_Intersects(a.border, t.border) ORDER BY a.sent DESC LIMIT ?; ")
 
 	var executeSQL *gorm.DB
 	executeSQL = a.UnderlyingDB().Raw(generateSQL.String(), params...).Find(&result) // ignore_security_alert
@@ -308,12 +308,12 @@ func (a alertDo) GetCustomAlertURIs(watchID string, limit uint) (result []*model
 
 // WITH target_area AS (SELECT border FROM saved_areas WHERE ID = @watchID LIMIT 1)
 //
-//	SELECT a.skeet_info AS skeet_info, EXTRACT(EPOCH FROM a.sent) * 1000 as sent
+//	SELECT a.skeet_info AS skeet_info, a.sent as sent
 //	FROM alerts a, target_area t
 //	WHERE a.skeet_info IS NOT NULL
 //	AND a.border && t.border AND ST_Intersects(a.border, t.border)
 //	AND sent < @cursor
-//	ORDER BY a.sent LIMIT @limit DESC;
+//	ORDER BY a.sent DESC LIMIT @limit;
 func (a alertDo) GetCustomAlertURIsWithCursor(watchID string, limit uint, cursor uint) (result []*models.Alert, err error) {
 	var params []interface{}
 
@@ -321,7 +321,7 @@ func (a alertDo) GetCustomAlertURIsWithCursor(watchID string, limit uint, cursor
 	params = append(params, watchID)
 	params = append(params, cursor)
 	params = append(params, limit)
-	generateSQL.WriteString("WITH target_area AS (SELECT border FROM saved_areas WHERE ID = ? LIMIT 1) SELECT a.skeet_info AS skeet_info, EXTRACT(EPOCH FROM a.sent) * 1000 as sent FROM alerts a, target_area t WHERE a.skeet_info IS NOT NULL AND a.border && t.border AND ST_Intersects(a.border, t.border) AND sent < ? ORDER BY a.sent LIMIT ? DESC; ")
+	generateSQL.WriteString("WITH target_area AS (SELECT border FROM saved_areas WHERE ID = ? LIMIT 1) SELECT a.skeet_info AS skeet_info, a.sent as sent FROM alerts a, target_area t WHERE a.skeet_info IS NOT NULL AND a.border && t.border AND ST_Intersects(a.border, t.border) AND sent < ? ORDER BY a.sent DESC LIMIT ?; ")
 
 	var executeSQL *gorm.DB
 	executeSQL = a.UnderlyingDB().Raw(generateSQL.String(), params...).Find(&result) // ignore_security_alert

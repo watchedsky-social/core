@@ -103,8 +103,8 @@ func Main() {
 	}()
 
 	me := filepath.Base(os.Args[0])
-	if me == "main" && len(os.Args) > 1 {
-		// we're in go run mode, take the next arg
+	if len(os.Args) > 1 {
+		// we're in go run or debug mode, take the next arg
 		me = os.Args[1]
 	}
 
