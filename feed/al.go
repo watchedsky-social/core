@@ -67,6 +67,7 @@ func handleFeedAlgorithm(c *fiber.Ctx) error {
 		jwt := authHeader[7:]
 		claims, err := verifyAuth(c.UserContext(), jwt, feedCfg.ServiceDID, "app.bsky.feed.generator")
 		if err != nil {
+			c.App().Server().Logger.Printf("err from verify auth: %v", err)
 			return c.SendStatus(http.StatusUnauthorized)
 		}
 
