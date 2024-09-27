@@ -60,8 +60,8 @@ func handleFeedAlgorithm(c *fiber.Ctx) error {
 	requestorDID := ""
 	if algo.UserSpecific() {
 		authHeader := http.Header(c.GetReqHeaders()).Get("Authorization")
+		log.Printf("auth header %q", authHeader)
 		if !strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
-			log.Printf("auth header %q", authHeader)
 			return c.SendStatus(http.StatusUnauthorized)
 		}
 
