@@ -9,6 +9,9 @@ import (
 	"github.com/bluesky-social/indigo/atproto/identity"
 	"github.com/bluesky-social/indigo/atproto/syntax"
 	"github.com/golang-jwt/jwt/v5"
+
+	// don't forget to import so the init function is called
+	_ "github.com/watchedsky-social/core/internal/secp256k1"
 )
 
 var directory identity.Directory = identity.DefaultDirectory()
