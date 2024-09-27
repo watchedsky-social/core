@@ -61,13 +61,14 @@ func handleFeedAlgorithm(c *fiber.Ctx) error {
 	if algo.UserSpecific() {
 		authHeader := http.Header(c.GetReqHeaders()).Get("Authorization")
 		if !strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
+			log.Printf("auth header %q", authHeader)
 			return c.SendStatus(http.StatusUnauthorized)
 		}
 
 		jwt := authHeader[7:]
 		claims, err := verifyAuth(c.UserContext(), jwt, feedCfg.ServiceDID, "app.bsky.feed.generator")
 		if err != nil {
-			c.App().Server().Logger.Printf("err from verify auth: %v", err)
+			log.Printf("err from verify auth: %v", err)
 			return c.SendStatus(http.StatusUnauthorized)
 		}
 
