@@ -11,12 +11,12 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 
 	// don't forget to import so the init function is called
-	_ "github.com/watchedsky-social/core/internal/secp256k1"
+	_ "github.com/watchedsky-social/core/internal/k256"
 )
 
 var directory identity.Directory = identity.DefaultDirectory()
 
-func verifyAuth(ctx context.Context, jwtStr, serviceDID, nsid string) (jwt.Claims, error) {
+func VerifyAuth(ctx context.Context, jwtStr, serviceDID, nsid string) (jwt.Claims, error) {
 
 	parser := jwt.NewParser(jwt.WithAudience(serviceDID), jwt.WithJSONNumber())
 	claims := jwt.MapClaims{}
