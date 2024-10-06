@@ -75,6 +75,9 @@ func SubscribeToFirehose(ctx context.Context) error {
 		return errors.New("env variable FIREHOSE_TARGET_DID must be set")
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	targetHandle, err := getHandleFromPLCDid(ctx, targetDID)
 	if err != nil {
 		return fmt.Errorf("could not resolve did %q: %w", targetDID, err)
@@ -125,6 +128,23 @@ func SubscribeToFirehose(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("cannot connect to bluesky: %w", err)
 	}
+
+	go func() {
+		for {
+			select {
+			case <-time.After(24 * time.Hour):
+				log.Print("re-authenticating nozzle client")
+				xrpcClient, err = getAuthenticatedXRPCClient(ctx, targetDID, os.Getenv("FIREHOSE_TARGET_APP_PASSWORD"))
+				if err != nil {
+					cancel()
+					return
+				}
+				continue
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	firehoseNozzle := &events.RepoStreamCallbacks{
 		RepoCommit: func(evt *atproto.SyncSubscribeRepos_Commit) error {
