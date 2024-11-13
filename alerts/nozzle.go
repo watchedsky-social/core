@@ -281,6 +281,13 @@ func handleCreateRecord(ctx context.Context, did string, path string, rcid *cid.
 			},
 		}
 
+		var err error
+		xc, err = getAuthenticatedXRPCClient(ctx, targetDID, os.Getenv("FIREHOSE_TARGET_APP_PASSWORD"))
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
 		json.NewEncoder(os.Stdout).Encode(input)
 
 		out, err := atproto.RepoCreateRecord(ctx, xc, &atproto.RepoCreateRecord_Input{
